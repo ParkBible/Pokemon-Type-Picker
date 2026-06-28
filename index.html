@@ -201,7 +201,6 @@
       img.crossOrigin = "anonymous";
       img.style.display = "none";
       img.alt = t.label;
-      img.onerror = () => { img.style.display = "none"; placeholder.style.display = ""; placeholder.textContent = "이미지 없음"; };
       imgArea.appendChild(img);
       imgArea.appendChild(placeholder);
       box.appendChild(imgArea);
@@ -215,16 +214,36 @@
       for (const p of list) {
         const opt = document.createElement("option");
         opt.value = p.img;
+        opt.dataset.id = p.id;
         opt.textContent = p.ko;
         select.appendChild(opt);
       }
       // 선택값을 이미지에 반영 (save=true면 localStorage에도 저장)
       const applySelection = (save) => {
         if (select.value) {
-          img.src = select.value;
+          const opt = select.options[select.selectedIndex];
+          const id = opt && opt.dataset.id;
+          // 공식 아트워크가 누락/일시 실패 시 home → 기본 스프라이트로 폴백
+          const candidates = id ? [
+            `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`,
+            `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${id}.png`,
+            `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
+          ] : [select.value];
+          let ci = 0;
+          img.onerror = () => {
+            if (++ci < candidates.length) {
+              img.src = candidates[ci];
+            } else {
+              img.style.display = "none";
+              placeholder.style.display = "";
+              placeholder.textContent = "이미지 없음";
+            }
+          };
           img.style.display = "";
           placeholder.style.display = "none";
+          img.src = candidates[0];
         } else {
+          img.onerror = null;
           img.style.display = "none";
           placeholder.style.display = "";
           placeholder.textContent = "포켓몬 선택";
