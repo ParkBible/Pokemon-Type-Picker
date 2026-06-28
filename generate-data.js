@@ -1,5 +1,6 @@
 // 생성: node generate-data.js
 // PokéAPI에서 타입별 포켓몬 목록 + 한국어 이름 + 공식 아트워크 URL을 받아 data.js를 만든다.
+// 기준종 + 주요 대체폼(메가/거다이맥스/원시/리전폼)을 포함한다.
 // Node 18+ 내장 fetch 사용 (외부 의존성 없음).
 
 const fs = require("fs");
@@ -14,6 +15,23 @@ const TYPES = [
 
 const ARTWORK = (id) =>
   `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
+
+// 슬러그로 "주요 대체폼" 여부 판별 → 한국어 폼 이름 반환 (아니면 null)
+function classifyForm(slug) {
+  if (slug.endsWith("-mega-x")) return "메가 X";
+  if (slug.endsWith("-mega-y")) return "메가 Y";
+  if (slug.endsWith("-mega")) return "메가";
+  if (slug.endsWith("-gmax")) return "거다이맥스";
+  if (slug.endsWith("-primal")) return "원시";
+  if (slug.includes("-paldea-combat")) return "팔데아 콤바트";
+  if (slug.includes("-paldea-blaze")) return "팔데아 블레이즈";
+  if (slug.includes("-paldea-aqua")) return "팔데아 아쿠아";
+  if (slug.endsWith("-alola")) return "알로라";
+  if (slug.endsWith("-galar")) return "가라르";
+  if (slug.endsWith("-hisui")) return "히스이";
+  if (slug.endsWith("-paldea")) return "팔데아";
+  return null;
+}
 
 async function fetchJson(url, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -48,27 +66,32 @@ function idFromUrl(url) {
 }
 
 async function main() {
-  // 1) 타입별 포켓몬 id 수집 (대체폼 id > 10000 제외)
-  const typeToIds = {};
-  const allIds = new Set();
+  // 1) 타입별 항목 수집 (기준종 id<=10000, 주요 폼 id>10000)
+  const typeEntries = {}; // type -> [{ id, slug }]
+  const baseIds = new Set();
+  const formSlugs = new Map(); // formId -> slug
 
   for (const type of TYPES) {
     const data = await fetchJson(`https://pokeapi.co/api/v2/type/${type}`);
-    const ids = data.pokemon
-      .map((p) => idFromUrl(p.pokemon.url))
-      .filter((id) => Number.isFinite(id) && id <= 10000);
-    typeToIds[type] = ids;
-    ids.forEach((id) => allIds.add(id));
-    console.log(`타입 수집: ${type.padEnd(9)} ${ids.length}마리`);
+    const entries = data.pokemon
+      .map((p) => ({ slug: p.pokemon.name, id: idFromUrl(p.pokemon.url) }))
+      .filter((e) => Number.isFinite(e.id));
+    typeEntries[type] = entries;
+
+    let baseCount = 0, formCount = 0;
+    for (const e of entries) {
+      if (e.id <= 10000) { baseIds.add(e.id); baseCount++; }
+      else if (classifyForm(e.slug)) { formSlugs.set(e.id, e.slug); formCount++; }
+    }
+    console.log(`타입 수집: ${type.padEnd(9)} 기준종 ${String(baseCount).padStart(3)} + 폼 ${formCount}`);
   }
 
-  // 2) 고유 id별 한국어 이름 조회
-  const uniqueIds = [...allIds].sort((a, b) => a - b);
-  console.log(`\n고유 포켓몬 ${uniqueIds.length}마리 한국어 이름 조회 중...`);
-
+  // 2) 기준종 한국어 이름 조회
+  const uniqueBaseIds = [...baseIds].sort((a, b) => a - b);
+  console.log(`\n기준종 ${uniqueBaseIds.length}마리 한국어 이름 조회 중...`);
   const idToName = {};
   let done = 0;
-  await mapWithConcurrency(uniqueIds, 15, async (id) => {
+  await mapWithConcurrency(uniqueBaseIds, 15, async (id) => {
     try {
       const sp = await fetchJson(`https://pokeapi.co/api/v2/pokemon-species/${id}`);
       const ko = sp.names.find((n) => n.language.name === "ko");
@@ -77,19 +100,48 @@ async function main() {
     } catch {
       idToName[id] = `#${id}`;
     }
-    done++;
-    if (done % 100 === 0) console.log(`  ...${done}/${uniqueIds.length}`);
+    if (++done % 100 === 0) console.log(`  ...${done}/${uniqueBaseIds.length}`);
   });
 
-  // 3) 타입별 객체 구성 + 한국어 이름 가나다순 정렬
+  // 3) 주요 폼 조회 — /pokemon/{id} 에서 기준종 id + 아트워크 URL 획득
+  const formIds = [...formSlugs.keys()];
+  console.log(`\n주요 대체폼 ${formIds.length}개 조회 중...`);
+  const formData = {}; // formId -> { ko, img }
+  await mapWithConcurrency(formIds, 15, async (id) => {
+    try {
+      const slug = formSlugs.get(id);
+      const pj = await fetchJson(`https://pokeapi.co/api/v2/pokemon/${id}`);
+      const speciesId = idFromUrl(pj.species.url);
+      let baseKo = idToName[speciesId];
+      if (!baseKo) {
+        const sp = await fetchJson(pj.species.url);
+        baseKo = sp.names.find((n) => n.language.name === "ko")?.name
+          || sp.names.find((n) => n.language.name === "en")?.name
+          || `#${speciesId}`;
+      }
+      const art = pj.sprites?.other?.["official-artwork"]?.front_default || ARTWORK(id);
+      formData[id] = { ko: `${baseKo} (${classifyForm(slug)})`, img: art };
+    } catch {
+      // 폼 조회 실패 시 건너뜀
+    }
+  });
+
+  // 4) 타입별 객체 구성 (기준종 + 폼) + 한국어 이름 가나다순 정렬
   const result = {};
   for (const type of TYPES) {
-    result[type] = typeToIds[type]
-      .map((id) => ({ id, ko: idToName[id], img: ARTWORK(id) }))
-      .sort((a, b) => a.ko.localeCompare(b.ko, "ko"));
+    const arr = [];
+    for (const e of typeEntries[type]) {
+      if (e.id <= 10000 && idToName[e.id]) {
+        arr.push({ id: e.id, ko: idToName[e.id], img: ARTWORK(e.id) });
+      } else if (formData[e.id]) {
+        arr.push({ id: e.id, ko: formData[e.id].ko, img: formData[e.id].img });
+      }
+    }
+    arr.sort((a, b) => a.ko.localeCompare(b.ko, "ko"));
+    result[type] = arr;
   }
 
-  // 4) data.js 작성
+  // 5) data.js 작성
   const out =
     "// 자동 생성 파일 — 직접 수정하지 말고 `node generate-data.js`로 재생성하세요.\n" +
     "window.POKEMON_DATA = " +
