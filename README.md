@@ -1,10 +1,9 @@
 # 타입별 favorite 포켓몬 피커
 <img width="2296" height="1534" alt="image" src="https://github.com/user-attachments/assets/c06a928e-29b3-4d9e-8fc6-1e71ab854e98" />
-
 사라진 cpokemon.com 스타일의 "타입별 내가 좋아하는 포켓몬" 피커. 18개 타입 박스에서 셀렉트박스로 포켓몬을 고르면 공식 일러스트가 표시된다. 채운 결과를 캡처해 공유하는 용도.
 
 ## 사용법
-`index.html`을 더블클릭해서 브라우저로 연다. (포켓몬 이미지는 원격 URL이라 인터넷 연결 필요)
+https://parkbible.github.io/Pokemon-Type-Picker/ 에 접속.
 
 포켓몬을 다 고른 뒤 우측 상단 **📷 이미지로 저장** 버튼을 누르면 `my-favorite-pokemon.png`로 저장된다. (저장 이미지에는 셀렉트박스가 빠지고 타입 박스 + 포켓몬만 깔끔하게 나옴. 폰에서 저장해도 항상 6열 와이드 비율 유지)
 
