@@ -20,6 +20,7 @@ const ARTWORK = (id) =>
 function classifyForm(slug) {
   if (slug.endsWith("-mega-x")) return "메가 X";
   if (slug.endsWith("-mega-y")) return "메가 Y";
+  if (slug.endsWith("-mega-z")) return "메가 Z";
   if (slug.endsWith("-mega")) return "메가";
   if (slug.endsWith("-gmax")) return "거다이맥스";
   if (slug.endsWith("-primal")) return "원시";
