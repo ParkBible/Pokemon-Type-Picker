@@ -223,8 +223,12 @@
           backgroundColor: "#2b2b3d",
           scale: 2,
           useCORS: true,
+          // 기기와 무관하게 항상 6열 와이드 레이아웃으로 저장 (폰에서도 비율 동일)
+          windowWidth: 1180,
           onclone: (doc) => {
             doc.querySelectorAll("#capture select").forEach((el) => { el.style.display = "none"; });
+            const clonedGrid = doc.querySelector("#capture .grid");
+            if (clonedGrid) clonedGrid.style.gridTemplateColumns = "repeat(6, 1fr)";
           },
         });
         const link = document.createElement("a");
