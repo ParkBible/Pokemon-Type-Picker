@@ -223,12 +223,14 @@
         if (select.value) {
           const opt = select.options[select.selectedIndex];
           const id = opt && opt.dataset.id;
-          // 공식 아트워크가 누락/일시 실패 시 home → 기본 스프라이트로 폴백
-          const candidates = id ? [
-            `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`,
-            `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${id}.png`,
-            `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
-          ] : [select.value];
+          // 저장된 이미지(공식 아트워크 또는 로컬 경로)를 우선, 실패 시 home → 기본 스프라이트로 폴백
+          const candidates = [select.value];
+          if (id && /^\d+$/.test(id)) {
+            candidates.push(
+              `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${id}.png`,
+              `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
+            );
+          }
           let ci = 0;
           img.onerror = () => {
             if (++ci < candidates.length) {

@@ -16,6 +16,15 @@ const TYPES = [
 const ARTWORK = (id) =>
   `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 
+// PokéAPI에 2D 일러스트가 없는 폼을 수동으로 보강한다.
+// KO_OVERRIDE: 기준종 한국어 이름 덮어쓰기 (id -> 이름)
+const KO_OVERRIDE = { 423: "트리토돈 (서쪽바다)" };
+// EXTRA_ENTRIES: 타입별로 추가할 항목 (img는 리포지토리 로컬 경로 권장 → CORS/저장 문제 없음)
+const EXTRA_ENTRIES = [
+  // 트리토돈 동쪽바다(파란색) — Serebii 2D 일러스트를 로컬 저장해 사용
+  { id: 990001, types: ["water", "ground"], ko: "트리토돈 (동쪽바다)", img: "img/gastrodon-east.png" },
+];
+
 // 슬러그로 "주요 대체폼" 여부 판별 → 한국어 폼 이름 반환 (아니면 null)
 function classifyForm(slug) {
   if (slug.endsWith("-mega-x")) return "메가 X";
@@ -133,10 +142,13 @@ async function main() {
     const arr = [];
     for (const e of typeEntries[type]) {
       if (e.id <= 10000 && idToName[e.id]) {
-        arr.push({ id: e.id, ko: idToName[e.id], img: ARTWORK(e.id) });
+        arr.push({ id: e.id, ko: KO_OVERRIDE[e.id] || idToName[e.id], img: ARTWORK(e.id) });
       } else if (formData[e.id]) {
         arr.push({ id: e.id, ko: formData[e.id].ko, img: formData[e.id].img });
       }
+    }
+    for (const ex of EXTRA_ENTRIES) {
+      if (ex.types.includes(type)) arr.push({ id: ex.id, ko: ex.ko, img: ex.img });
     }
     arr.sort((a, b) => a.ko.localeCompare(b.ko, "ko"));
     result[type] = arr;
