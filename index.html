@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your favorite Pokémon of each type</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 48px;
+    background: #2b2b3d;
+    font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+    color: #fff;
+  }
+  h1 {
+    text-align: center;
+    font-size: clamp(22px, 4vw, 40px);
+    font-weight: 800;
+    margin: 8px 0 24px;
+    background: linear-gradient(90deg, #f857a6, #ff5858, #f9d423, #56ab2f, #4776e6, #8e54e9, #f857a6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 1px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 560px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .box {
+    background: #1f1f2e;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    flex-direction: column;
+  }
+  .box-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+  .box-header img { height: 18px; }
+  .img-area {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 40%, #3a3a52, #1f1f2e 70%);
+  }
+  .img-area img { max-width: 88%; max-height: 88%; object-fit: contain; }
+  .img-area .placeholder {
+    color: rgba(255,255,255,0.25);
+    font-size: 12px;
+  }
+  select {
+    width: 100%;
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 7px 8px;
+    background: #2b2b3d;
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  select:focus { outline: 2px solid rgba(255,255,255,0.3); outline-offset: -2px; }
+  footer {
+    text-align: center;
+    margin-top: 28px;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+  }
+  .toolbar {
+    max-width: 1100px;
+    margin: 0 auto 16px;
+    text-align: right;
+  }
+  .save-btn {
+    background: linear-gradient(90deg, #4776e6, #8e54e9);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .save-btn:hover { filter: brightness(1.1); }
+  .save-btn:disabled { opacity: 0.6; cursor: default; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="save-btn" id="saveBtn">📷 이미지로 저장</button>
+  </div>
+
+  <div id="capture">
+    <h1>Your favorite Pokémon of each type</h1>
+    <div class="grid" id="grid"></div>
+    <footer>Create your own • 데이터: PokéAPI</footer>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="data.js"></script>
+  <script>
+    // 사진과 동일한 표시 순서 + 타입 메타데이터(영문 라벨, 색상, 타입 심볼 id)
+    const TYPES = [
+      { key: "grass",    label: "GRASS",    color: "#78C850", icon: 12 },
+      { key: "fire",     label: "FIRE",     color: "#F08030", icon: 10 },
+      { key: "water",    label: "WATER",    color: "#6890F0", icon: 11 },
+      { key: "normal",   label: "NORMAL",   color: "#A8A878", icon: 1 },
+      { key: "electric", label: "ELECTRIC", color: "#F8D030", icon: 13 },
+      { key: "psychic",  label: "PSYCHIC",  color: "#F85888", icon: 14 },
+      { key: "fighting", label: "FIGHTING", color: "#C03028", icon: 2 },
+      { key: "rock",     label: "ROCK",     color: "#B8A038", icon: 6 },
+      { key: "ground",   label: "GROUND",   color: "#E0C068", icon: 5 },
+      { key: "flying",   label: "FLYING",   color: "#A890F0", icon: 3 },
+      { key: "bug",      label: "BUG",      color: "#A8B820", icon: 7 },
+      { key: "poison",   label: "POISON",   color: "#A040A0", icon: 4 },
+      { key: "dark",     label: "DARK",     color: "#705848", icon: 17 },
+      { key: "ghost",    label: "GHOST",    color: "#705898", icon: 8 },
+      { key: "ice",      label: "ICE",      color: "#98D8D8", icon: 15 },
+      { key: "steel",    label: "STEEL",    color: "#B8B8D0", icon: 9 },
+      { key: "dragon",   label: "DRAGON",   color: "#7038F8", icon: 16 },
+      { key: "fairy",    label: "FAIRY",    color: "#EE99AC", icon: 18 },
+    ];
+
+    const TYPE_ICON = (id) =>
+      `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-viii/sword-shield/${id}.png`;
+
+    const grid = document.getElementById("grid");
+    const data = window.POKEMON_DATA || {};
+
+    for (const t of TYPES) {
+      const list = data[t.key] || [];
+
+      const box = document.createElement("div");
+      box.className = "box";
+
+      // 헤더
+      const header = document.createElement("div");
+      header.className = "box-header";
+      header.style.background = t.color;
+      const icon = document.createElement("img");
+      icon.crossOrigin = "anonymous";
+      icon.alt = "";
+      icon.src = TYPE_ICON(t.icon);
+      icon.onerror = () => { icon.style.display = "none"; };
+      const labelEl = document.createElement("span");
+      labelEl.textContent = t.label;
+      header.appendChild(icon);
+      header.appendChild(labelEl);
+      box.appendChild(header);
+
+      // 이미지 영역
+      const imgArea = document.createElement("div");
+      imgArea.className = "img-area";
+      const placeholder = document.createElement("span");
+      placeholder.className = "placeholder";
+      placeholder.textContent = "포켓몬 선택";
+      const img = document.createElement("img");
+      img.crossOrigin = "anonymous";
+      img.style.display = "none";
+      img.alt = t.label;
+      img.onerror = () => { img.style.display = "none"; placeholder.style.display = ""; placeholder.textContent = "이미지 없음"; };
+      imgArea.appendChild(img);
+      imgArea.appendChild(placeholder);
+      box.appendChild(imgArea);
+
+      // 셀렉트박스
+      const select = document.createElement("select");
+      const first = document.createElement("option");
+      first.value = "";
+      first.textContent = `선택 (${list.length})`;
+      select.appendChild(first);
+      for (const p of list) {
+        const opt = document.createElement("option");
+        opt.value = p.img;
+        opt.textContent = p.ko;
+        select.appendChild(opt);
+      }
+      select.addEventListener("change", () => {
+        if (select.value) {
+          img.src = select.value;
+          img.style.display = "";
+          placeholder.style.display = "none";
+        } else {
+          img.style.display = "none";
+          placeholder.style.display = "";
+          placeholder.textContent = "포켓몬 선택";
+        }
+      });
+      box.appendChild(select);
+
+      grid.appendChild(box);
+    }
+
+    // 이미지로 저장 — 캡처 복제본에서만 셀렉트박스를 숨겨 깔끔하게 저장
+    const saveBtn = document.getElementById("saveBtn");
+    saveBtn.addEventListener("click", async () => {
+      saveBtn.disabled = true;
+      const original = saveBtn.textContent;
+      saveBtn.textContent = "저장 중...";
+      try {
+        const canvas = await html2canvas(document.getElementById("capture"), {
+          backgroundColor: "#2b2b3d",
+          scale: 2,
+          useCORS: true,
+          onclone: (doc) => {
+            doc.querySelectorAll("#capture select").forEach((el) => { el.style.display = "none"; });
+          },
+        });
+        const link = document.createElement("a");
+        link.download = "my-favorite-pokemon.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      } catch (err) {
+        alert("저장에 실패했어요: " + err.message);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = original;
+      }
+    });
+  </script>
+</body>
+</html>
